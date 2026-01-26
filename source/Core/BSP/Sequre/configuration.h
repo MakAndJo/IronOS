@@ -280,6 +280,8 @@
 #define I2C_SOFT_BUS_1 // For now we are doing software I2C to get around hardware chip issues
 #define OLED_I2CBB2
 #define FILTER_DISPLAYED_TIP_TEMP 4 // Filtering for GUI display
+#define TIP_TYPE_SUPPORT          1 // Support for tips of different resistances
+#define TIPTYPE_JBC                 // Enable JBC/C210 style tips
 
 #define MODEL_HAS_DCDC // We dont have DC/DC but have reallly fast PWM that gets us roughly the same place
 #endif                 /* S99 */

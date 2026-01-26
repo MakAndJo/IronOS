@@ -235,7 +235,11 @@
     },
     {
       "id": "TipTypeJBCC210",
-      "description": "JBC (or clone) tips"
+      "description": "JBC C210 2.5 ohm tips"
+    },
+    {
+      "id": "TipTypeJBCC210_55",
+      "description": "JBC C210 5.5 ohm tips"
     }
   ],
   "menuOptions": [

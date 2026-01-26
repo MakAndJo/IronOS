@@ -52,13 +52,29 @@ bool i2c_probe(uint8_t addr) {
 }
 
 uint8_t FS2711::detect_i2c_bus_num() {
+  // Try to detect which I2C bus the FS2711 is connected to
+  // Different hardware revisions use different buses:
+  // - S60, S60P V1.0, S99 V1.4: Bus 2 (PB6/PB7)
+  // - S60P V1.2+, S99 V1.5: Bus 1 (PB10/PB11)
+
   I2CBB2::probe(88);
   I2CBB2::probe(89);
   if (I2CBB2::probe(FS2711_ADDR)) {
     I2C_PORT = 2;
-  } else {
-    I2C_PORT = 1;
+    return I2C_PORT;
   }
+
+#ifdef I2C_SOFT_BUS_1
+  I2CBB1::probe(88);
+  I2CBB1::probe(89);
+  if (I2CBB1::probe(FS2711_ADDR)) {
+    I2C_PORT = 1;
+    return I2C_PORT;
+  }
+#endif
+
+  // Default to bus 2 if detection failed
+  I2C_PORT = 2;
   return I2C_PORT;
 }
 

@@ -131,7 +131,10 @@
       "displayText": "TS80\n"
     },
     "TipTypeJBCC210": {
-      "displayText": "JBC\nC210"
+      "displayText": "C210\n2.5ohm"
+    },
+    "TipTypeJBCC210_55": {
+      "displayText": "C210\n5.5ohm"
     }
   },
   "menuOptions": {
@@ -251,8 +254,8 @@
       "displayText": "Hall Eff\nSensibilidad",
       "description": "Sensibilidad del sensor de efecto Hall en la detección de reposo (1=menos sensible | ... | 9=más sensible)"
     },
-    "HallEffSleepTimeout": {                                           
-      "displayText": "Tiempo reposo\nSensor Hall", 
+    "HallEffSleepTimeout": {
+      "displayText": "Tiempo reposo\nSensor Hall",
       "description": "Intervalo antes de que \"modo resposo\" empiece cuando sensorhall supera límite"
     },
     "TemperatureUnit": {
