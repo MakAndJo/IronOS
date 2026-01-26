@@ -23,6 +23,11 @@ OUTPUT_DIR=Objects/$(model)
 ALL_LANGUAGES=BE BG CS DA DE EL EN ES ET FI FR HR HU IT JA_JP LT NB NL_BE NL PL PT RO RU SK SL SR_CYRL SR_LATN SV TR UK UZ VI YUE_HK ZH_CN ZH_TW
 
 LANGUAGE_GROUP_CJK_LANGS=EN JA_JP YUE_HK ZH_TW ZH_CN
+
+# CJK languages require large fonts that overflow ROM on Sequre devices
+ifneq ($(filter $(model),$(ALL_SEQURE_MODELS)),)
+ALL_LANGUAGES:=$(filter-out $(filter-out EN,$(LANGUAGE_GROUP_CJK_LANGS)),$(ALL_LANGUAGES))
+endif
 LANGUAGE_GROUP_CJK_NAME=Chinese+Japanese
 
 ifdef custom_multi_langs
