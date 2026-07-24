@@ -29,10 +29,10 @@ static void printShortDescription(SettingsItemIndex settingsItemIndex, uint16_t 
 }
 
 // Render a menu, based on the position given
-// This will either draw the menu item, or the help text depending on how long its been since button press
+// This will either draw the menu item, or the help text depending on if the help flag is set
 void render_menu(const menuitem *item, guiContext *cxt) {
-  // If recent interaction or not help text draw the entry
-  if ((xTaskGetTickCount() - lastButtonTime < HELP_TEXT_TIMEOUT_TICKS) || item->description == 0) {
+  uint16_t *isRenderingHelp = &(cxt->scratch_state.state6);
+  if (!*isRenderingHelp || item->description == 0) {
 
     if (item->shortDescriptionSize > 0) {
       printShortDescription(item->shortDescriptionIndex, item->shortDescriptionSize);
@@ -40,11 +40,8 @@ void render_menu(const menuitem *item, guiContext *cxt) {
     item->draw();
   } else {
 
-    uint16_t *isRenderingHelp = &(cxt->scratch_state.state6);
-    *isRenderingHelp          = 1;
-    // Draw description
     const char *description = translatedString(Tr->SettingsDescriptions[item->description - 1]);
-    drawScrollingText(description, (xTaskGetTickCount() - lastButtonTime) - HELP_TEXT_TIMEOUT_TICKS);
+    drawScrollingText(description, xTaskGetTickCount());
   }
 }
 
@@ -127,7 +124,7 @@ OperatingMode moveToPrevEntry(guiContext *cxt) {
         uint16_t len = getMenuLength(rootSettingsMenu, 128);
         if (len > 0) {
           *mainEntry = len - 1;
-          cxt->transitionMode = TransitionAnimation::Down;
+          cxt->transitionMode = TransitionAnimation::Up;
         }
       } else {
         (*mainEntry) -= 1;
@@ -278,6 +275,9 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
   }
 
   OperatingMode newMode = OperatingMode::SettingsMenu;
+  if (buttonPress != BUTTON_BOTH && buttonPress != BUTTON_NONE && *isRenderingHelp) {
+    *isRenderingHelp = 0;
+  }
   switch (buttonPress) {
   case BUTTON_NONE:
     if (*isSelected && *autoRepeatTimer == 0) {
@@ -291,18 +291,10 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
     return OperatingMode::HomeScreen;
     break;
   case BUTTON_BOTH:
-    if (*subEntry == 0) {
-      saveSettings();
-      cxt->transitionMode = TransitionAnimation::Left;
-      return OperatingMode::HomeScreen;
-    } else if (*isSelected) {
-      *isSelected = 0;
-      saveSettings();
-    } else {
-      saveSettings();
-      cxt->transitionMode = TransitionAnimation::Left;
-      *subEntry           = 0;
-      return OperatingMode::SettingsMenu;
+    if (*isRenderingHelp) {
+      *isRenderingHelp = 0;
+    } else if (currentMenu[currentScreen].description != 0) {
+      *isRenderingHelp = 1;
     }
     break;
   case BUTTON_F_LONG:
@@ -323,9 +315,7 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
     }
     break;
   case BUTTON_B_LONG:
-    if (*isRenderingHelp) {
-      *isRenderingHelp = 0;
-    } else if (*subEntry == 0) {
+    if (*subEntry == 0) {
       *currentMenuLength = 0;
       if (currentMenu[currentScreen].incrementHandler != nullptr) {
         currentMenu[currentScreen].incrementHandler();
@@ -370,6 +360,28 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
     break;
   }
 
-  // Otherwise we stay put for next render iteration
+  if (newMode != OperatingMode::SettingsMenu) {
+    return newMode;
+  }
+
+  if (!*isRenderingHelp) {
+    TickType_t idleTicks = xTaskGetTickCount() - lastButtonTime;
+
+    if (*subEntry > 0 && *isSelected && idleTicks > (TICKS_SECOND * 2)) {
+      *isSelected = 0;
+      saveSettings();
+      lastButtonTime = xTaskGetTickCount();
+    } else if (*subEntry > 0 && !*isSelected && idleTicks > (TICKS_SECOND * 3)) {
+      saveSettings();
+      *subEntry = 0;
+      lastButtonTime = xTaskGetTickCount();
+      cxt->transitionMode = TransitionAnimation::Left;
+      return OperatingMode::SettingsMenu;
+    } else if (*subEntry == 0 && idleTicks > (TICKS_SECOND * 3)) {
+      saveSettings();
+      cxt->transitionMode = TransitionAnimation::Left;
+      return cxt->previousMode;
+    }
+  }
   return newMode;
 }
