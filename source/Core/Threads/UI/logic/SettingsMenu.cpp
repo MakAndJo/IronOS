@@ -190,12 +190,7 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
     *currentMenuLength = getMenuLength(currentMenu, 128 /* Max length of any menu*/);
   }
 
-  if (cxt->scratch_state.state7 && *subEntry > 0) {
-    if (xTaskGetTickCount() % (TICKS_SECOND / 3) < (TICKS_SECOND / 6)) {
-      OLED::fillArea(OLED_WIDTH - 4, 0, 4, 8, 0xFF);
-    }
-  } else if (*isRenderingHelp == 0) {
-    //  Draw scroll
+  if (*isRenderingHelp == 0) {
 
     // Get virtual pos by counting entries from start to _here_
     uint16_t currentVirtualPosition = getMenuLength(currentMenu, currentScreen + 1);
@@ -213,19 +208,10 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
 
     bool showScrollbar = true;
 
-    // Store if its the last option for this setting
-    bool isLastOptionForSetting = false;
-    if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
-      isLastOptionForSetting = isLastSettingValue(currentMenu[currentScreen].autoSettingOption);
+    if (cxt->scratch_state.state7 && *subEntry > 0) {
+      showScrollbar = (xTaskGetTickCount() % (TICKS_SECOND / 3) < (TICKS_SECOND / 6));
     }
-
-    // Last settings menu entry, reset scroll show back so it flashes
-    if (isLastOptionForSetting) {
-      showScrollbar = false;
-    }
-
-    // Or Flash it
-    showScrollbar |= (xTaskGetTickCount() % (TICKS_SECOND / 4) < (TICKS_SECOND / 8));
+    // else: showScrollbar stays true (static scrollbar)
 
     if (showScrollbar) {
       OLED::drawScrollIndicator((uint8_t)position, indicatorHeight);
@@ -280,8 +266,12 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
   }
   switch (buttonPress) {
   case BUTTON_NONE:
-    if (*isSelected && *autoRepeatTimer == 0) {
-      *autoRepeatTimer = 1;
+    if (*isSelected) {
+      if (*autoRepeatTimer == 0) {
+        *autoRepeatTimer = 1;
+      }
+    } else {
+      *autoRepeatTimer = 0;
     }
     break;
   case BUTTON_BOTH_LONG:
@@ -335,11 +325,14 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
       }
     } else {
       *currentMenuLength = 0;
-      *autoRepeatTimer   = 0;
       if (isCheckbox) {
-        callIncrementHandler();
+        if (*autoRepeatTimer == 0) {
+          *autoRepeatTimer = 1;
+          callIncrementHandler();
+        }
       } else {
-        *isSelected = 1;
+        *autoRepeatTimer   = 0;
+        *isSelected        = 1;
       }
     }
     break;
