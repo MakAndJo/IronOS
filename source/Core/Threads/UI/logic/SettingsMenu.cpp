@@ -41,7 +41,7 @@ void render_menu(const menuitem *item, guiContext *cxt) {
   } else {
 
     const char *description = translatedString(Tr->SettingsDescriptions[item->description - 1]);
-    drawScrollingText(description, xTaskGetTickCount());
+    drawScrollingText(description, xTaskGetTickCount() - cxt->scratch_state.state3);
   }
 }
 
@@ -263,10 +263,13 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
   OperatingMode newMode = OperatingMode::SettingsMenu;
   if (buttonPress != BUTTON_BOTH && buttonPress != BUTTON_NONE && *isRenderingHelp) {
     *isRenderingHelp = 0;
+    *autoRepeatTimer = 0;
   }
   switch (buttonPress) {
   case BUTTON_NONE:
-    if (*isSelected) {
+    if (*isRenderingHelp) {
+      // keep autoRepeatTimer as help start time
+    } else if (*isSelected) {
       if (*autoRepeatTimer == 0) {
         *autoRepeatTimer = 1;
       }
@@ -288,6 +291,7 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
       *isRenderingHelp = 0;
     } else if (currentMenu[currentScreen].description != 0) {
       *isRenderingHelp = 1;
+      *autoRepeatTimer = xTaskGetTickCount();
     }
     break;
   case BUTTON_F_LONG:
