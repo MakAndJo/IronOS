@@ -291,7 +291,10 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
     return OperatingMode::HomeScreen;
     break;
   case BUTTON_BOTH:
-    if (*isRenderingHelp) {
+    if (*isSelected) {
+      *isSelected = 0;
+      saveSettings();
+    } else if (*isRenderingHelp) {
       *isRenderingHelp = 0;
     } else if (currentMenu[currentScreen].description != 0) {
       *isRenderingHelp = 1;
