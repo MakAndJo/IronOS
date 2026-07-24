@@ -159,7 +159,7 @@ settings:
     max: 0xFFFF
     min: 0
     name: UILanguage
-  - default: 20
+  - default: USB_PD_TIMEOUT
     increment: 1
     max: 50
     min: 0
@@ -174,7 +174,7 @@ settings:
     max: MAX_BRIGHTNESS
     min: MIN_BRIGHTNESS
     name: OLEDBrightness
-  - default: 1
+  - default: 0
     increment: 1
     max: 6
     min: 0

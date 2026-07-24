@@ -66,7 +66,7 @@
  */
 #define ORIENTATION_MODE           0 // 0: Right 1:Left (2:Automatic N/A)
 #define MAX_ORIENTATION_MODE       1 // Disable auto mode
-#define REVERSE_BUTTON_TEMP_CHANGE 0 // 0:Default 1:Reverse - Reverse the plus and minus button assigment for temperature change
+#define REVERSE_BUTTON_TEMP_CHANGE 1 // 0:Default 1:Reverse - Reverse the plus and minus button assigment for temperature change
 
 /**
  * Temp change settings
@@ -96,8 +96,8 @@
  * Detailed soldering screen
  * Detailed idle screen (off for first time users)
  */
-#define DETAILED_SOLDERING 0 // 0: Disable 1: Enable - Default 0
-#define DETAILED_IDLE      0 // 0: Disable 1: Enable - Default 0
+#define DETAILED_SOLDERING 1 // 0: Disable 1: Enable - Default 0
+#define DETAILED_IDLE      1 // 0: Disable 1: Enable - Default 0
 
 #define CUT_OUT_SETTING          0  // default to no cut-off voltage
 #define RECOM_VOL_CELL           33 // Minimum voltage per cell (Recommended 3.3V (33))
@@ -161,15 +161,15 @@
 #define VOLTAGE_DIV        460 // Default divider scaler
 #define CALIBRATION_OFFSET 200 // Default adc offset in uV
 #define PID_POWER_LIMIT    70  // Sets the max pwm power limit
-#define POWER_LIMIT        0   // 0 watts default limit
-#define MAX_POWER_LIMIT    70
+#define POWER_LIMIT        15   // 0 watts default limit
+#define MAX_POWER_LIMIT    60
 #define POWER_LIMIT_STEPS  5
 #define OP_AMP_GAIN_STAGE  536
 #define TEMP_uV_LOOKUP_S60
 #define USB_PD_VMAX                     20  // Maximum voltage for PD to negotiate
 #define THERMAL_RUNAWAY_TIME_SEC 20
 #define THERMAL_RUNAWAY_TEMP_C   3
-#define USB_PD_TIMEOUT     1   // Default Timeout for USB-PD Protocol negotiation in x100ms
+#define USB_PD_TIMEOUT     0   // Default Timeout for USB-PD Protocol negotiation in x100ms
 
 #define HARDWARE_MAX_WATTAGE_X10 600
 
