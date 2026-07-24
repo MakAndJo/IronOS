@@ -3,7 +3,8 @@
 #include "OperatingModes.h"
 #include "ui_drawing.hpp"
 
-bool showExitMenuTransition = false;
+bool   showExitMenuTransition = false;
+ButtonState triggerButton = BUTTON_NONE;
 
 OperatingMode handleHomeButtons(const ButtonState buttons, guiContext *cxt) {
   if (buttons != BUTTON_NONE && cxt->scratch_state.state1 == 0) {
@@ -33,6 +34,7 @@ OperatingMode handleHomeButtons(const ButtonState buttons, guiContext *cxt) {
     break;
   case BUTTON_F_SHORT:
   case BUTTON_B_SHORT:
+    triggerButton = buttons;
     cxt->transitionMode = TransitionAnimation::Left;
     return OperatingMode::TemperatureAdjust;
     break;

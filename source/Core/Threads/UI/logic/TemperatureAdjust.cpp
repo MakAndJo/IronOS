@@ -1,31 +1,37 @@
 #include "OperatingModes.h"
 #include "ui_drawing.hpp"
 
+extern ButtonState triggerButton;
+
 OperatingMode gui_solderingTempAdjust(const ButtonState buttonIn, guiContext *cxt) {
 
   currentTempTargetDegC              = 0; // Turn off heater while adjusting temp
-  uint16_t   *waitForRelease         = &(cxt->scratch_state.state1);
   uint32_t   *autoRepeatTimer        = &(cxt->scratch_state.state3);
   uint16_t   *autoRepeatAcceleration = &(cxt->scratch_state.state2);
+  uint32_t   *firstCallDone          = &(cxt->scratch_state.state4);
   ButtonState buttons                = buttonIn;
-  if (*waitForRelease == 0) {
-    // When we first enter we wait for the user to release buttons before enabling changes
-    if (buttons != BUTTON_NONE) {
-      buttons = BUTTON_NONE;
-    } else {
-      (*waitForRelease)++;
+
+  if (*firstCallDone == 0) {
+    *firstCallDone = 1;
+    if (triggerButton != BUTTON_NONE) {
+      cxt->scratch_state.state1 = (uint16_t)triggerButton;
+      triggerButton             = BUTTON_NONE;
     }
+  }
+  if (cxt->scratch_state.state1 != 0) {
+    buttons                       = (ButtonState)cxt->scratch_state.state1;
+    cxt->scratch_state.state1     = 0;
   }
 
   int16_t delta = 0;
   switch (buttons) {
   case BUTTON_NONE:
-    // stay
     (*autoRepeatAcceleration) = 0;
     break;
   case BUTTON_BOTH:
-    // exit
+  case BUTTON_BOTH_LONG:
     saveSettings();
+    ui_draw_temperature_change();
     cxt->transitionMode = TransitionAnimation::Right;
     return cxt->previousMode;
   case BUTTON_B_LONG:
@@ -83,7 +89,7 @@ OperatingMode gui_solderingTempAdjust(const ButtonState buttonIn, guiContext *cx
   }
   ui_draw_temperature_change();
 
-  if (xTaskGetTickCount() - lastButtonTime > (TICKS_SECOND * 3)) {
+  if (xTaskGetTickCount() - lastButtonTime > (TICKS_SECOND * 1)) {
     saveSettings();
     cxt->transitionMode = TransitionAnimation::Right;
     return cxt->previousMode; // exit if user just doesn't press anything for a bit
