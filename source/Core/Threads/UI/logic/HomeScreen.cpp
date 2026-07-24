@@ -15,36 +15,26 @@ OperatingMode handleHomeButtons(const ButtonState buttons, guiContext *cxt) {
   case BUTTON_NONE:
     // Do nothing
     break;
-  case BUTTON_BOTH:
-    break;
 
-  case BUTTON_B_LONG:
+  case BUTTON_BOTH_LONG:
     cxt->transitionMode = TransitionAnimation::Down;
     return OperatingMode::DebugMenuReadout;
     break;
   case BUTTON_F_LONG:
-#ifdef PROFILE_SUPPORT
-    if (!isTipDisconnected()) {
-      cxt->transitionMode = TransitionAnimation::Left;
-      return OperatingMode::SolderingProfile;
-    } else {
-      return OperatingMode::HomeScreen;
-    }
-#else
-    cxt->transitionMode = TransitionAnimation::Left;
-    return OperatingMode::TemperatureAdjust;
-#endif
-    break;
-  case BUTTON_F_SHORT:
     if (!isTipDisconnected()) {
       bool detailedView   = getSettingValue(SettingsOptions::DetailedIDLE) && getSettingValue(SettingsOptions::DetailedSoldering);
       cxt->transitionMode = detailedView ? TransitionAnimation::None : TransitionAnimation::Left;
       return OperatingMode::Soldering;
     }
     break;
-  case BUTTON_B_SHORT:
+  case BUTTON_B_LONG:
     cxt->transitionMode = TransitionAnimation::Right;
     return OperatingMode::SettingsMenu;
+    break;
+  case BUTTON_F_SHORT:
+  case BUTTON_B_SHORT:
+    cxt->transitionMode = TransitionAnimation::Left;
+    return OperatingMode::TemperatureAdjust;
     break;
   default:
     break;

@@ -111,18 +111,67 @@ OperatingMode moveToNextEntry(guiContext *cxt) {
   return OperatingMode::SettingsMenu;
 }
 
-OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
+OperatingMode moveToPrevEntry(guiContext *cxt) {
+  uint16_t *mainEntry         = &(cxt->scratch_state.state1);
+  uint16_t *subEntry          = &(cxt->scratch_state.state2);
+  uint16_t *currentMenuLength = &(cxt->scratch_state.state5);
+  uint16_t *isRenderingHelp   = &(cxt->scratch_state.state6);
+
+  if (*isRenderingHelp) {
+    *isRenderingHelp = 0;
+  } else {
+    *currentMenuLength = 0;
+    cxt->transitionMode = TransitionAnimation::Up;
+    if (*subEntry == 0) {
+      if (*mainEntry == 0) {
+        uint16_t len = getMenuLength(rootSettingsMenu, 128);
+        if (len > 0) {
+          *mainEntry = len - 1;
+          cxt->transitionMode = TransitionAnimation::Down;
+        }
+      } else {
+        (*mainEntry) -= 1;
+      }
+      if (rootSettingsMenu[*mainEntry].isVisible != nullptr && !rootSettingsMenu[*mainEntry].isVisible()) {
+        return moveToPrevEntry(cxt);
+      }
+    } else {
+      if (*subEntry <= 1) {
+        uint16_t len = getMenuLength(subSettingsMenus[*mainEntry], 128);
+        if (len > 0) {
+          *subEntry = len;
+        }
+        cxt->transitionMode = TransitionAnimation::Up;
+      } else {
+        (*subEntry) -= 1;
+      }
+      if (subSettingsMenus[*mainEntry][(*subEntry) - 1].isVisible != nullptr && !subSettingsMenus[*mainEntry][(*subEntry) - 1].isVisible()) {
+        return moveToPrevEntry(cxt);
+      }
+    }
+  }
+  return OperatingMode::SettingsMenu;
+}
+
+OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
+  ButtonState buttons = buttonIn;
+  // Ignore held buttons on first entry after mode transition
+  if (cxt->scratch_state.state4 == 0) {
+    cxt->scratch_state.state4 = 1;
+    if (buttons != BUTTON_NONE) {
+      buttons = BUTTON_NONE;
+    }
+  }
+
   // Render out the current settings menu
   // State 1 -> Root menu
   // State 2 -> Sub entry
   // Draw main entry if sub-entry is 0, otherwise draw sub-entry
 
-  uint16_t *mainEntry              = &(cxt->scratch_state.state1);
-  uint16_t *subEntry               = &(cxt->scratch_state.state2);
-  uint32_t *autoRepeatAcceleration = &(cxt->scratch_state.state3);
-  uint32_t *autoRepeatTimer        = &(cxt->scratch_state.state4);
-  uint16_t *currentMenuLength      = &(cxt->scratch_state.state5);
-  uint16_t *isRenderingHelp        = &(cxt->scratch_state.state6);
+  uint16_t *mainEntry         = &(cxt->scratch_state.state1);
+  uint16_t *subEntry          = &(cxt->scratch_state.state2);
+  uint16_t *currentMenuLength = &(cxt->scratch_state.state5);
+  uint16_t *isRenderingHelp   = &(cxt->scratch_state.state6);
 
   const menuitem *currentMenu;
   // Draw the currently on screen item
@@ -144,7 +193,11 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
     *currentMenuLength = getMenuLength(currentMenu, 128 /* Max length of any menu*/);
   }
 
-  if (*isRenderingHelp == 0) {
+  if (cxt->scratch_state.state7 && *subEntry > 0) {
+    if (xTaskGetTickCount() % (TICKS_SECOND / 3) < (TICKS_SECOND / 6)) {
+      OLED::fillArea(OLED_WIDTH - 4, 0, 4, 8, 0xFF);
+    }
+  } else if (*isRenderingHelp == 0) {
     //  Draw scroll
 
     // Get virtual pos by counting entries from start to _here_
@@ -191,6 +244,17 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
     }
     return false;
   };
+  auto callDecrementHandler = [&]() {
+    if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
+      prevSettingValue(currentMenu[currentScreen].autoSettingOption);
+    }
+  };
+
+  bool isCheckbox = ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength)
+                    && settingsConstants[(int)currentMenu[currentScreen].autoSettingOption].max <= 1;
+
+  uint32_t *autoRepeatTimer = &(cxt->scratch_state.state3);
+  uint32_t *isSelected      = &(cxt->scratch_state.state7);
 
   // Modify a button value before processing a key press if setting to swap buttons is enabled
   bool    swapButtonSettings = getSettingValue(SettingsOptions::ReverseButtonSettings);
@@ -216,76 +280,94 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
   OperatingMode newMode = OperatingMode::SettingsMenu;
   switch (buttonPress) {
   case BUTTON_NONE:
-    (*autoRepeatAcceleration) = 0; // reset acceleration
-    (*autoRepeatTimer)        = 0; // reset acceleration
+    if (*isSelected && *autoRepeatTimer == 0) {
+      *autoRepeatTimer = 1;
+    }
+    break;
+  case BUTTON_BOTH_LONG:
+    saveSettings();
+    *isSelected = 0;
+    cxt->transitionMode = TransitionAnimation::Left;
+    return OperatingMode::HomeScreen;
     break;
   case BUTTON_BOTH:
     if (*subEntry == 0) {
       saveSettings();
       cxt->transitionMode = TransitionAnimation::Left;
       return OperatingMode::HomeScreen;
+    } else if (*isSelected) {
+      *isSelected = 0;
+      saveSettings();
     } else {
+      saveSettings();
       cxt->transitionMode = TransitionAnimation::Left;
       *subEntry           = 0;
       return OperatingMode::SettingsMenu;
     }
     break;
   case BUTTON_F_LONG:
-    if (xTaskGetTickCount() + (*autoRepeatAcceleration) > (*autoRepeatTimer) + PRESS_ACCEL_INTERVAL_MAX) {
-      callIncrementHandler();
-      // Update the check for if its the last version
-      bool isLastOptionForSetting = false;
-      if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
-        isLastOptionForSetting = isLastSettingValue(currentMenu[currentScreen].autoSettingOption);
+    if (*subEntry == 0) {
+      saveSettings();
+      cxt->transitionMode = TransitionAnimation::Left;
+      return OperatingMode::HomeScreen;
+    } else if (*isSelected) {
+      *currentMenuLength = 0;
+      if (*autoRepeatTimer && xTaskGetTickCount() - *autoRepeatTimer >= PRESS_ACCEL_INTERVAL_MIN) {
+        *autoRepeatTimer = xTaskGetTickCount();
+        callDecrementHandler();
       }
-
-      if (isLastOptionForSetting) {
-        (*autoRepeatTimer) = TICKS_SECOND * 2;
-      } else {
-        (*autoRepeatTimer) = 0;
-      }
-      (*autoRepeatTimer) += xTaskGetTickCount();
-      (*autoRepeatAcceleration) += PRESS_ACCEL_STEP;
-      *currentMenuLength = 0; // Reset incase menu visible changes
-    }
-    break;
-  case BUTTON_F_SHORT:
-    // Increment setting
-    if (*isRenderingHelp) {
-      *isRenderingHelp = 0;
     } else {
-      *currentMenuLength = 0; // Reset incase menu visible changes
-      if (*subEntry == 0) {
-        // In a root menu, if its null handler we enter the menu
-        if (currentMenu[currentScreen].incrementHandler != nullptr) {
-          currentMenu[currentScreen].incrementHandler();
-        } else {
-          (*subEntry) += 1;
-          cxt->transitionMode = TransitionAnimation::Right;
-        }
-      } else {
-        callIncrementHandler();
-      }
+      cxt->transitionMode = TransitionAnimation::Left;
+      *subEntry           = 0;
+      return OperatingMode::SettingsMenu;
     }
     break;
   case BUTTON_B_LONG:
-    if (xTaskGetTickCount() + (*autoRepeatAcceleration) > (*autoRepeatTimer) + PRESS_ACCEL_INTERVAL_MAX) {
-      (*autoRepeatTimer) = xTaskGetTickCount();
-      (*autoRepeatAcceleration) += PRESS_ACCEL_STEP;
+    if (*isRenderingHelp) {
+      *isRenderingHelp = 0;
+    } else if (*subEntry == 0) {
+      *currentMenuLength = 0;
+      if (currentMenu[currentScreen].incrementHandler != nullptr) {
+        currentMenu[currentScreen].incrementHandler();
+      } else {
+        cxt->scratch_state.state4 = 0;
+        (*subEntry) += 1;
+        cxt->transitionMode = TransitionAnimation::Right;
+      }
+    } else if (*isSelected) {
+      *currentMenuLength = 0;
+      if (*autoRepeatTimer && xTaskGetTickCount() - *autoRepeatTimer >= PRESS_ACCEL_INTERVAL_MIN) {
+        *autoRepeatTimer = xTaskGetTickCount();
+        callIncrementHandler();
+      }
     } else {
-      break;
+      *currentMenuLength = 0;
+      *autoRepeatTimer   = 0;
+      if (isCheckbox) {
+        callIncrementHandler();
+      } else {
+        *isSelected = 1;
+      }
     }
-    /* Fall through*/
+    break;
+  case BUTTON_F_SHORT:
+    if (*subEntry > 0 && *isSelected) {
+      *currentMenuLength = 0;
+      callDecrementHandler();
+    } else {
+      newMode = moveToPrevEntry(cxt);
+    }
+    break;
   case BUTTON_B_SHORT:
-    // Increment menu item
-    newMode = moveToNextEntry(cxt);
+    if (*subEntry > 0 && *isSelected) {
+      *currentMenuLength = 0;
+      callIncrementHandler();
+    } else {
+      newMode = moveToNextEntry(cxt);
+    }
     break;
   default:
     break;
-  }
-
-  if ((PRESS_ACCEL_INTERVAL_MAX - (*autoRepeatAcceleration)) < PRESS_ACCEL_INTERVAL_MIN) {
-    (*autoRepeatAcceleration) = PRESS_ACCEL_INTERVAL_MAX - PRESS_ACCEL_INTERVAL_MIN;
   }
 
   // Otherwise we stay put for next render iteration
