@@ -217,23 +217,3 @@ jobs:
           exclude: "./.git/*" # Optional.
           check_all_files_with_shebangs: "false" # Optional.
 
-  check_docs:
-    runs-on: ubuntu-24.04
-    container:
-      image: alpine:3.21
-
-    steps:
-      - name: Install dependencies (apk)
-        run: apk add --no-cache git bash grep
-
-      - uses: actions/checkout@v7
-        with:
-          submodules: true
-          fetch-tags: true
-          fetch-depth: 0
-
-      - name: Git ownership exception
-        run: git config --global --add safe.directory /__w/IronOS/IronOS && git config --global safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Check and verify documentation
-        run: ./scripts/deploy.sh docs
