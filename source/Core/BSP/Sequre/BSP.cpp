@@ -110,7 +110,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (PWMSafetyTimer == 0) {
       htim4.Instance->CCR3 = 0;
     } else {
-      htim4.Instance->CCR3 = pendingPWM / 4;
+      htim4.Instance->CCR3 = pendingPWM;
     }
   } else if (htim->Instance == TIM1) {
     // STM uses this for internal functions as a counter for timeouts
@@ -131,7 +131,10 @@ void unstick_I2C() {}
 uint8_t getButtonA() { return HAL_GPIO_ReadPin(KEY_A_GPIO_Port, KEY_A_Pin) == GPIO_PIN_RESET ? 1 : 0; }
 uint8_t getButtonB() { return HAL_GPIO_ReadPin(KEY_B_GPIO_Port, KEY_B_Pin) == GPIO_PIN_RESET ? 1 : 0; }
 
-void BSPInit(void) { switchToFastPWM(); }
+void BSPInit(void) {
+  switchToFastPWM();
+  htim4.Instance->PSC = 35; // ~875 Hz, 256 steps
+}
 
 void reboot() { NVIC_SystemReset(); }
 
@@ -164,11 +167,6 @@ uint8_t preStartChecks() {
 #endif
 
   uint16_t thresholdResistancex10 = ((voltage * 1000) / currentx100) + 5;
-
-  if (getTipResistanceX10() <= thresholdResistancex10) {
-    // We are limited by resistance, not our current limiting, we can slow down PWM to avoid audible noise
-    htim4.Instance->PSC = 50; // 10 -> 500 removes audible noise
-  }
 
   return 1; // We are done now
 }
