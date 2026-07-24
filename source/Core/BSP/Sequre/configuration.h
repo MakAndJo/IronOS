@@ -66,7 +66,7 @@
  */
 #define ORIENTATION_MODE           0 // 0: Right 1:Left (2:Automatic N/A)
 #define MAX_ORIENTATION_MODE       1 // Disable auto mode
-#define REVERSE_BUTTON_TEMP_CHANGE 0 // 0:Default 1:Reverse - Reverse the plus and minus button assigment for temperature change
+#define REVERSE_BUTTON_TEMP_CHANGE 1 // 0:Default 1:Reverse - Reverse the plus and minus button assigment for temperature change
 
 /**
  * Temp change settings
@@ -96,8 +96,8 @@
  * Detailed soldering screen
  * Detailed idle screen (off for first time users)
  */
-#define DETAILED_SOLDERING 0 // 0: Disable 1: Enable - Default 0
-#define DETAILED_IDLE      0 // 0: Disable 1: Enable - Default 0
+#define DETAILED_SOLDERING 1 // 0: Disable 1: Enable - Default 0
+#define DETAILED_IDLE      1 // 0: Disable 1: Enable - Default 0
 
 #define CUT_OUT_SETTING          0  // default to no cut-off voltage
 #define RECOM_VOL_CELL           33 // Minimum voltage per cell (Recommended 3.3V (33))
@@ -116,7 +116,7 @@
 // Vin_max = (3.3*(r1+r2))/(r2)
 // vdiv = (32768*4)/(vin_max*10)
 
-#if defined(MODEL_S60) + defined(MODEL_S60P) + defined(MODEL_T55) == 0
+#if defined(MODEL_S60) + defined(MODEL_S60P) + defined(MODEL_T55) + defined(MODEL_S99) == 0
 #error "No model defined!"
 #endif
 
@@ -131,9 +131,10 @@
 #define POWER_LIMIT_STEPS  5
 #define OP_AMP_GAIN_STAGE  536
 #define TEMP_uV_LOOKUP_S60
-#define USB_PD_VMAX              12 // Maximum voltage for PD to negotiate
+#define USB_PD_VMAX                     12  // Maximum voltage for PD to negotiate
 #define THERMAL_RUNAWAY_TIME_SEC 20
 #define THERMAL_RUNAWAY_TEMP_C   3
+#define USB_PD_TIMEOUT     1   // Default Timeout for USB-PD Protocol negotiation in x100ms
 
 #define HARDWARE_MAX_WATTAGE_X10 600
 
@@ -160,14 +161,15 @@
 #define VOLTAGE_DIV        460 // Default divider scaler
 #define CALIBRATION_OFFSET 200 // Default adc offset in uV
 #define PID_POWER_LIMIT    70  // Sets the max pwm power limit
-#define POWER_LIMIT        0   // 0 watts default limit
-#define MAX_POWER_LIMIT    70
+#define POWER_LIMIT        15   // 0 watts default limit
+#define MAX_POWER_LIMIT    60
 #define POWER_LIMIT_STEPS  5
 #define OP_AMP_GAIN_STAGE  536
 #define TEMP_uV_LOOKUP_S60
-#define USB_PD_VMAX              20 // Maximum voltage for PD to negotiate
+#define USB_PD_VMAX                     20  // Maximum voltage for PD to negotiate
 #define THERMAL_RUNAWAY_TIME_SEC 20
 #define THERMAL_RUNAWAY_TEMP_C   3
+#define USB_PD_TIMEOUT     0   // Default Timeout for USB-PD Protocol negotiation in x100ms
 
 #define HARDWARE_MAX_WATTAGE_X10 600
 
@@ -180,10 +182,13 @@
 #define GPIO_VIBRATION
 #define POW_PD_EXT                2
 #define USB_PD_EPR_WATTAGE        0 /*No EPR*/
+#define POW_DC
 #define DEBUG_POWER_MENU_BUTTON_B 1
 #define HAS_POWER_DEBUG_MENU
 #define TEMP_NTC
 #define I2C_SOFT_BUS_2 // For now we are doing software I2C to get around hardware chip issues
+#define I2C_PROBE_POW_PD // For now we are doing software I2C to get around hardware chip issues
+#define I2C_SOFT_BUS_1 // For now we are doing software I2C to get around hardware chip issues
 #define OLED_I2CBB2
 #define FILTER_DISPLAYED_TIP_TEMP 4 // Filtering for GUI display
 
@@ -206,6 +211,8 @@
 #define OP_AMP_GAIN_STAGE      1
 #define TEMP_uV_LOOKUP_PT1000
 #define USB_PD_VMAX       20  // Maximum voltage for PD to negotiate
+#define USB_PD_TIMEOUT     1   // Default Timeout for USB-PD Protocol negotiation in x100ms
+
 #define NO_DISPLAY_ROTATE     // Disable OLED rotation by accel
 #define MAX_TEMP_C        350 // Max soldering temp selectable °C
 #define MAX_TEMP_F        660 // Max soldering temp selectable °F
@@ -238,6 +245,46 @@
 
 #define MODEL_HAS_DCDC // We dont have DC/DC but have reallly fast PWM that gets us roughly the same place
 #endif                 /* T55 */
+
+#ifdef MODEL_S99
+#define VOLTAGE_DIV        460 // Default divider scaler
+#define CALIBRATION_OFFSET 200 // Default adc offset in uV
+#define PID_POWER_LIMIT    70  // Sets the max pwm power limit
+#define POWER_LIMIT        0   // 0 watts default limit
+#define MAX_POWER_LIMIT    70
+#define POWER_LIMIT_STEPS  5
+#define OP_AMP_GAIN_STAGE  237 // Two sequential op-amps 1st: 1+(9k29/997R)=10.31 2nd: 1+(22k/1k)=23 -> 10.31*23=237
+#define TEMP_uV_LOOKUP_S99
+#define USB_PD_VMAX        20  // Maximum voltage for PD to negotiate
+#define USB_PD_TIMEOUT     1   // Default Timeout for USB-PD Protocol negotiation in x100ms
+
+#define HARDWARE_MAX_WATTAGE_X10 1300
+
+#define TIP_THERMAL_MASS    8   // X10 watts to raise 1 deg C in 1 second
+#define TIP_THERMAL_INERTIA 128 // We use a large inertia value to smooth out the drive to the tip since its stupidly sensitive
+#define THERMAL_RUNAWAY_TIME_SEC 20
+#define THERMAL_RUNAWAY_TEMP_C   10
+
+#define TIP_RESISTANCE 20 //(actually 2.5 ish but we need to be more conservative on pwm'ing watt limit) x10 ohms
+
+#define OLED_128x32
+#define GPIO_VIBRATION
+#define POW_PD_EXT                2
+#define USB_PD_EPR_WATTAGE        0 /*No EPR*/
+#define POW_DC
+#define DEBUG_POWER_MENU_BUTTON_B 1
+#define HAS_POWER_DEBUG_MENU
+#define TEMP_NTC
+#define I2C_SOFT_BUS_2 // For now we are doing software I2C to get around hardware chip issues
+#define I2C_PROBE_POW_PD // For now we are doing software I2C to get around hardware chip issues
+#define I2C_SOFT_BUS_1 // For now we are doing software I2C to get around hardware chip issues
+#define OLED_I2CBB2
+#define FILTER_DISPLAYED_TIP_TEMP 4 // Filtering for GUI display
+#define TIP_TYPE_SUPPORT          1 // Support for tips of different resistances
+#define TIPTYPE_JBC                 // Enable JBC/C210 style tips
+
+#define MODEL_HAS_DCDC // We dont have DC/DC but have reallly fast PWM that gets us roughly the same place
+#endif                 /* S99 */
 
 #define FLASH_LOGOADDR      (0x08000000 + (62 * 1024))
 #define SETTINGS_START_PAGE (0x08000000 + (63 * 1024))

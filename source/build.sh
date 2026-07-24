@@ -6,9 +6,13 @@ TRANSLATION_DIR="../Translations"
 # AVAILABLE_LANGUAGES will be calculating according to json files in $TRANSLATION_DIR
 AVAILABLE_LANGUAGES=()
 BUILD_LANGUAGES=()
-AVAILABLE_MODELS=("TS100" "TS80" "TS80P" "Pinecil" "MHP30" "Pinecilv2" "S60" "S60P" "T55" "TS101")
+AVAILABLE_MODELS=("TS100" "TS80" "TS80P" "Pinecil" "MHP30" "Pinecilv2" "S60" "S60P" "T55" "S99" "TS101")
 BUILD_MODELS=()
 OPTIONS=()
+
+# CJK languages require large fonts - excluded for small ROM devices
+CJK_LANGUAGES=("JA_JP" "ZH_CN" "ZH_TW" "YUE_HK")
+SMALL_ROM_MODELS=("S60" "S60P" "T55" "S99")
 
 builder_info() {
     echo -e "
@@ -184,8 +188,21 @@ if [ ${#BUILD_LANGUAGES[@]} -gt 0 ] && [ ${#BUILD_MODELS[@]} -gt 0 ]; then
     checkLastCommand
 
     for model in "${BUILD_MODELS[@]}"; do
-        echo "Building firmware for $model in ${BUILD_LANGUAGES[*]}"
-        make -j"$(nproc)" model="$model" "${BUILD_LANGUAGES[@]/#/firmware-}" "${OPTIONS[@]}" >/dev/null
+        MODEL_LANGS=("${BUILD_LANGUAGES[@]}")
+
+        # Skip CJK languages for small ROM models
+        if isInArray "$model" "${SMALL_ROM_MODELS[@]}"; then
+            FILTERED_LANGS=()
+            for lang in "${MODEL_LANGS[@]}"; do
+                if ! isInArray "$lang" "${CJK_LANGUAGES[@]}"; then
+                    FILTERED_LANGS+=("$lang")
+                fi
+            done
+            MODEL_LANGS=("${FILTERED_LANGS[@]}")
+        fi
+
+        echo "Building firmware for $model in ${MODEL_LANGS[*]}"
+        make -j"$(nproc)" model="$model" "${MODEL_LANGS[@]/#/firmware-}" "${OPTIONS[@]}" >/dev/null
         checkLastCommand
     done
 else

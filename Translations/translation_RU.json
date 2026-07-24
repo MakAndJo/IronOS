@@ -133,7 +133,10 @@
       "displayText": "TS80(P)\n"
     },
     "TipTypeJBCC210": {
-      "displayText": "JBC\nC210"
+      "displayText": "C210\n2.5ohm"
+    },
+    "TipTypeJBCC210_55": {
+      "displayText": "C210\n5.5ohm"
     }
   },
   "menuOptions": {

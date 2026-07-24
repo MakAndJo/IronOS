@@ -1,10 +1,15 @@
 #include "BSP.h"
 #include "BSP_Power.h"
+#include "FS2711.hpp"
 #include "Pins.h"
 #include "QC3.h"
 #include "Settings.h"
 #include "USBPD.h"
 #include "configuration.h"
+
+#if defined(POW_DC) && defined(MAX_POWER_LIMIT)
+extern int32_t powerSupplyWattageLimit;
+#endif
 
 void power_check() {
 #ifdef POW_PD
@@ -16,9 +21,32 @@ void power_check() {
     return; // We are using PD
   }
 #endif
+#if POW_PD_EXT == 2
+  if (FS2711::has_run_selection()) {
+    return;
+  }
+#endif
 #ifdef POW_QC
   QC_resync();
 #endif
 }
 
-bool getIsPoweredByDCIN() { return false; }
+bool getIsPoweredByDCIN() {
+#if POW_PD_EXT == 2 && defined(POW_DC)
+  if (!FS2711::has_run_selection()) {
+#ifdef MAX_POWER_LIMIT
+    powerSupplyWattageLimit = MAX_POWER_LIMIT;
+#endif
+    return true;
+  } else if (FS2711::debug_get_state().source_voltage > 0) {
+    return false;
+  } else {
+#ifdef MAX_POWER_LIMIT
+    powerSupplyWattageLimit = MAX_POWER_LIMIT;
+#endif
+    return true;
+  }
+#else
+  return false;
+#endif
+}
