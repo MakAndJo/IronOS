@@ -24,24 +24,27 @@ void ui_draw_soldering_basic_status(bool boostModeOn) {
     midX = 74; voltX = 116;
   }
 
-  OLED::setCursor(0, 8);
+  OLED::setCursor(8, 12);
   OLED::printNumber(getTipTemp(), 3, FontStyle::LARGE);
   OLED::printSymbolDeg(FontStyle::EXTRAS);
 
   OLED::setCursor(midX, 0);
   OLED::printNumber(getSettingValue(SettingsOptions::SolderingTemp), 3, FontStyle::SMALL);
   OLED::printSymbolDeg(FontStyle::SMALL);
-  // OLED::print(SmallSymbolSpace, FontStyle::SMALL);
-  if (boostModeOn) OLED::drawSymbol(2);
+  OLED::print(SmallSymbolSpace, FontStyle::SMALL);
 
-  OLED::setCursor(midX, 8);
+  OLED::setCursor(midX, 12);
   printWatts();
 
-  OLED::setCursor(midX, 16);
+  OLED::setCursor(midX + 5, 16);
   OLED::drawSymbol(14);
-  uint8_t heat = X10WattsToPWM(x10WattHistory.average()) / 31;
-  OLED::drawFilledRect(midX, 16, midX + 12, 16 + 2 + (8 - heat), true);
-
+  {
+    uint8_t heat = X10WattsToPWM(x10WattHistory.average()) / 31;
+    OLED::drawFilledRect(midX + 5, 16, midX + 5 + 12, 18 + (8 - heat), true);
+  }
+  if (boostModeOn) {
+    OLED::drawSymbol(2);
+  }
   OLED::setCursor(voltX, 0);
   ui_draw_power_source_icon();
 }
