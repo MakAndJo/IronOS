@@ -367,7 +367,7 @@ OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
   if (!*isRenderingHelp) {
     TickType_t idleTicks = xTaskGetTickCount() - lastButtonTime;
 
-    if (*subEntry > 0 && *isSelected && idleTicks > (TICKS_SECOND * 2)) {
+    if (*subEntry > 0 && *isSelected && idleTicks > (TICKS_SECOND * 1.5)) {
       *isSelected = 0;
       saveSettings();
       lastButtonTime = xTaskGetTickCount();

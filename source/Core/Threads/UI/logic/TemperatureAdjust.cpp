@@ -89,7 +89,7 @@ OperatingMode gui_solderingTempAdjust(const ButtonState buttonIn, guiContext *cx
   }
   ui_draw_temperature_change();
 
-  if (xTaskGetTickCount() - lastButtonTime > (TICKS_SECOND * 1)) {
+  if (xTaskGetTickCount() - lastButtonTime > (TICKS_SECOND * 1.5)) {
     saveSettings();
     cxt->transitionMode = TransitionAnimation::Right;
     return cxt->previousMode; // exit if user just doesn't press anything for a bit
