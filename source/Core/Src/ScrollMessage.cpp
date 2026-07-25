@@ -41,7 +41,7 @@ void drawScrollingText(const char *message, TickType_t currentTickOffset) {
   int16_t  messageOffset;
   uint16_t msgWidth = messageWidth(message);
   if (msgWidth > OLED_WIDTH) {
-    messageOffset = (currentTickOffset / (getSettingValue(SettingsOptions::DescriptionScrollSpeed) == 1 ? TICKS_100MS / 10 : (TICKS_100MS / 5)));
+    messageOffset = (currentTickOffset / (getSettingValue(SettingsOptions::DescriptionScrollSpeed) == 1 ? TICKS_100MS / 14 : (TICKS_100MS / 7)));
     messageOffset %= msgWidth + OLED_WIDTH; // Roll around at the end
     if (messageOffset < OLED_WIDTH) {
       // Snap the message to the left edge.

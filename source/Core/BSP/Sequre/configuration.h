@@ -96,8 +96,8 @@
  * Detailed soldering screen
  * Detailed idle screen (off for first time users)
  */
-#define DETAILED_SOLDERING 1 // 0: Disable 1: Enable - Default 0
-#define DETAILED_IDLE      1 // 0: Disable 1: Enable - Default 0
+#define DETAILED_SOLDERING 0 // 0: Disable 1: Enable - Default 0
+#define DETAILED_IDLE      0 // 0: Disable 1: Enable - Default 0
 
 #define CUT_OUT_SETTING          0  // default to no cut-off voltage
 #define RECOM_VOL_CELL           33 // Minimum voltage per cell (Recommended 3.3V (33))
@@ -295,7 +295,7 @@
 #define MIN_CALIBRATION_OFFSET 100 // Min value for calibration
 #endif
 #ifndef SOLDERING_TEMP
-#define SOLDERING_TEMP 320 // Default soldering temp is 320.0 °C
+#define SOLDERING_TEMP 40 // Default soldering temp is 320.0 °C
 #endif
 #ifndef PID_TIM_HZ
 #define PID_TIM_HZ (8) // Tick rate of the PID loop

@@ -29,10 +29,10 @@ static void printShortDescription(SettingsItemIndex settingsItemIndex, uint16_t 
 }
 
 // Render a menu, based on the position given
-// This will either draw the menu item, or the help text depending on how long its been since button press
+// This will either draw the menu item, or the help text depending on if the help flag is set
 void render_menu(const menuitem *item, guiContext *cxt) {
-  // If recent interaction or not help text draw the entry
-  if ((xTaskGetTickCount() - lastButtonTime < HELP_TEXT_TIMEOUT_TICKS) || item->description == 0) {
+  uint16_t *isRenderingHelp = &(cxt->scratch_state.state6);
+  if (!*isRenderingHelp || item->description == 0) {
 
     if (item->shortDescriptionSize > 0) {
       printShortDescription(item->shortDescriptionIndex, item->shortDescriptionSize);
@@ -40,11 +40,8 @@ void render_menu(const menuitem *item, guiContext *cxt) {
     item->draw();
   } else {
 
-    uint16_t *isRenderingHelp = &(cxt->scratch_state.state6);
-    *isRenderingHelp          = 1;
-    // Draw description
     const char *description = translatedString(Tr->SettingsDescriptions[item->description - 1]);
-    drawScrollingText(description, (xTaskGetTickCount() - lastButtonTime) - HELP_TEXT_TIMEOUT_TICKS);
+    drawScrollingText(description, xTaskGetTickCount() - cxt->scratch_state.state3);
   }
 }
 
@@ -111,18 +108,67 @@ OperatingMode moveToNextEntry(guiContext *cxt) {
   return OperatingMode::SettingsMenu;
 }
 
-OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
+OperatingMode moveToPrevEntry(guiContext *cxt) {
+  uint16_t *mainEntry         = &(cxt->scratch_state.state1);
+  uint16_t *subEntry          = &(cxt->scratch_state.state2);
+  uint16_t *currentMenuLength = &(cxt->scratch_state.state5);
+  uint16_t *isRenderingHelp   = &(cxt->scratch_state.state6);
+
+  if (*isRenderingHelp) {
+    *isRenderingHelp = 0;
+  } else {
+    *currentMenuLength = 0;
+    cxt->transitionMode = TransitionAnimation::Up;
+    if (*subEntry == 0) {
+      if (*mainEntry == 0) {
+        uint16_t len = getMenuLength(rootSettingsMenu, 128);
+        if (len > 0) {
+          *mainEntry = len - 1;
+          cxt->transitionMode = TransitionAnimation::Up;
+        }
+      } else {
+        (*mainEntry) -= 1;
+      }
+      if (rootSettingsMenu[*mainEntry].isVisible != nullptr && !rootSettingsMenu[*mainEntry].isVisible()) {
+        return moveToPrevEntry(cxt);
+      }
+    } else {
+      if (*subEntry <= 1) {
+        uint16_t len = getMenuLength(subSettingsMenus[*mainEntry], 128);
+        if (len > 0) {
+          *subEntry = len;
+        }
+        cxt->transitionMode = TransitionAnimation::Up;
+      } else {
+        (*subEntry) -= 1;
+      }
+      if (subSettingsMenus[*mainEntry][(*subEntry) - 1].isVisible != nullptr && !subSettingsMenus[*mainEntry][(*subEntry) - 1].isVisible()) {
+        return moveToPrevEntry(cxt);
+      }
+    }
+  }
+  return OperatingMode::SettingsMenu;
+}
+
+OperatingMode gui_SettingsMenu(const ButtonState buttonIn, guiContext *cxt) {
+  ButtonState buttons = buttonIn;
+  // Ignore held buttons on first entry after mode transition
+  if (cxt->scratch_state.state4 == 0) {
+    cxt->scratch_state.state4 = 1;
+    if (buttons != BUTTON_NONE) {
+      buttons = BUTTON_NONE;
+    }
+  }
+
   // Render out the current settings menu
   // State 1 -> Root menu
   // State 2 -> Sub entry
   // Draw main entry if sub-entry is 0, otherwise draw sub-entry
 
-  uint16_t *mainEntry              = &(cxt->scratch_state.state1);
-  uint16_t *subEntry               = &(cxt->scratch_state.state2);
-  uint32_t *autoRepeatAcceleration = &(cxt->scratch_state.state3);
-  uint32_t *autoRepeatTimer        = &(cxt->scratch_state.state4);
-  uint16_t *currentMenuLength      = &(cxt->scratch_state.state5);
-  uint16_t *isRenderingHelp        = &(cxt->scratch_state.state6);
+  uint16_t *mainEntry         = &(cxt->scratch_state.state1);
+  uint16_t *subEntry          = &(cxt->scratch_state.state2);
+  uint16_t *currentMenuLength = &(cxt->scratch_state.state5);
+  uint16_t *isRenderingHelp   = &(cxt->scratch_state.state6);
 
   const menuitem *currentMenu;
   // Draw the currently on screen item
@@ -145,7 +191,6 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
   }
 
   if (*isRenderingHelp == 0) {
-    //  Draw scroll
 
     // Get virtual pos by counting entries from start to _here_
     uint16_t currentVirtualPosition = getMenuLength(currentMenu, currentScreen + 1);
@@ -163,19 +208,10 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
 
     bool showScrollbar = true;
 
-    // Store if its the last option for this setting
-    bool isLastOptionForSetting = false;
-    if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
-      isLastOptionForSetting = isLastSettingValue(currentMenu[currentScreen].autoSettingOption);
+    if (cxt->scratch_state.state7 && *subEntry > 0) {
+      showScrollbar = (xTaskGetTickCount() % (TICKS_SECOND / 3) < (TICKS_SECOND / 6));
     }
-
-    // Last settings menu entry, reset scroll show back so it flashes
-    if (isLastOptionForSetting) {
-      showScrollbar = false;
-    }
-
-    // Or Flash it
-    showScrollbar |= (xTaskGetTickCount() % (TICKS_SECOND / 4) < (TICKS_SECOND / 8));
+    // else: showScrollbar stays true (static scrollbar)
 
     if (showScrollbar) {
       OLED::drawScrollIndicator((uint8_t)position, indicatorHeight);
@@ -191,6 +227,17 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
     }
     return false;
   };
+  auto callDecrementHandler = [&]() {
+    if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
+      prevSettingValue(currentMenu[currentScreen].autoSettingOption);
+    }
+  };
+
+  bool isCheckbox = ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength)
+                    && settingsConstants[(int)currentMenu[currentScreen].autoSettingOption].max <= 1;
+
+  uint32_t *autoRepeatTimer = &(cxt->scratch_state.state3);
+  uint32_t *isSelected      = &(cxt->scratch_state.state7);
 
   // Modify a button value before processing a key press if setting to swap buttons is enabled
   bool    swapButtonSettings = getSettingValue(SettingsOptions::ReverseButtonSettings);
@@ -214,80 +261,127 @@ OperatingMode gui_SettingsMenu(const ButtonState buttons, guiContext *cxt) {
   }
 
   OperatingMode newMode = OperatingMode::SettingsMenu;
+  if (buttonPress != BUTTON_BOTH && buttonPress != BUTTON_NONE && *isRenderingHelp) {
+    *isRenderingHelp = 0;
+    *autoRepeatTimer = 0;
+  }
   switch (buttonPress) {
   case BUTTON_NONE:
-    (*autoRepeatAcceleration) = 0; // reset acceleration
-    (*autoRepeatTimer)        = 0; // reset acceleration
+    if (*isRenderingHelp) {
+      // keep autoRepeatTimer as help start time
+    } else if (*isSelected) {
+      if (*autoRepeatTimer == 0) {
+        *autoRepeatTimer = 1;
+      }
+    } else {
+      *autoRepeatTimer = 0;
+    }
+    break;
+  case BUTTON_BOTH_LONG:
+    saveSettings();
+    *isSelected = 0;
+    cxt->transitionMode = TransitionAnimation::Left;
+    return OperatingMode::HomeScreen;
     break;
   case BUTTON_BOTH:
+    if (*isSelected) {
+      *isSelected = 0;
+      saveSettings();
+    } else if (*isRenderingHelp) {
+      *isRenderingHelp = 0;
+    } else if (currentMenu[currentScreen].description != 0) {
+      *isRenderingHelp = 1;
+      *autoRepeatTimer = xTaskGetTickCount();
+    }
+    break;
+  case BUTTON_F_LONG:
     if (*subEntry == 0) {
       saveSettings();
       cxt->transitionMode = TransitionAnimation::Left;
       return OperatingMode::HomeScreen;
+    } else if (*isSelected) {
+      *currentMenuLength = 0;
+      if (*autoRepeatTimer && xTaskGetTickCount() - *autoRepeatTimer >= PRESS_ACCEL_INTERVAL_MIN) {
+        *autoRepeatTimer = xTaskGetTickCount();
+        callDecrementHandler();
+      }
     } else {
       cxt->transitionMode = TransitionAnimation::Left;
       *subEntry           = 0;
       return OperatingMode::SettingsMenu;
     }
     break;
-  case BUTTON_F_LONG:
-    if (xTaskGetTickCount() + (*autoRepeatAcceleration) > (*autoRepeatTimer) + PRESS_ACCEL_INTERVAL_MAX) {
-      callIncrementHandler();
-      // Update the check for if its the last version
-      bool isLastOptionForSetting = false;
-      if ((int)currentMenu[currentScreen].autoSettingOption < (int)SettingsOptions::SettingsOptionsLength) {
-        isLastOptionForSetting = isLastSettingValue(currentMenu[currentScreen].autoSettingOption);
-      }
-
-      if (isLastOptionForSetting) {
-        (*autoRepeatTimer) = TICKS_SECOND * 2;
+  case BUTTON_B_LONG:
+    if (*subEntry == 0) {
+      *currentMenuLength = 0;
+      if (currentMenu[currentScreen].incrementHandler != nullptr) {
+        currentMenu[currentScreen].incrementHandler();
       } else {
-        (*autoRepeatTimer) = 0;
+        cxt->scratch_state.state4 = 0;
+        (*subEntry) += 1;
+        cxt->transitionMode = TransitionAnimation::Right;
       }
-      (*autoRepeatTimer) += xTaskGetTickCount();
-      (*autoRepeatAcceleration) += PRESS_ACCEL_STEP;
-      *currentMenuLength = 0; // Reset incase menu visible changes
+    } else if (*isSelected) {
+      *currentMenuLength = 0;
+      if (*autoRepeatTimer && xTaskGetTickCount() - *autoRepeatTimer >= PRESS_ACCEL_INTERVAL_MIN) {
+        *autoRepeatTimer = xTaskGetTickCount();
+        callIncrementHandler();
+      }
+    } else {
+      *currentMenuLength = 0;
+      if (isCheckbox) {
+        if (*autoRepeatTimer == 0) {
+          *autoRepeatTimer = 1;
+          callIncrementHandler();
+        }
+      } else {
+        *autoRepeatTimer   = 0;
+        *isSelected        = 1;
+      }
     }
     break;
   case BUTTON_F_SHORT:
-    // Increment setting
-    if (*isRenderingHelp) {
-      *isRenderingHelp = 0;
+    if (*subEntry > 0 && *isSelected) {
+      *currentMenuLength = 0;
+      callDecrementHandler();
     } else {
-      *currentMenuLength = 0; // Reset incase menu visible changes
-      if (*subEntry == 0) {
-        // In a root menu, if its null handler we enter the menu
-        if (currentMenu[currentScreen].incrementHandler != nullptr) {
-          currentMenu[currentScreen].incrementHandler();
-        } else {
-          (*subEntry) += 1;
-          cxt->transitionMode = TransitionAnimation::Right;
-        }
-      } else {
-        callIncrementHandler();
-      }
+      newMode = moveToPrevEntry(cxt);
     }
     break;
-  case BUTTON_B_LONG:
-    if (xTaskGetTickCount() + (*autoRepeatAcceleration) > (*autoRepeatTimer) + PRESS_ACCEL_INTERVAL_MAX) {
-      (*autoRepeatTimer) = xTaskGetTickCount();
-      (*autoRepeatAcceleration) += PRESS_ACCEL_STEP;
-    } else {
-      break;
-    }
-    /* Fall through*/
   case BUTTON_B_SHORT:
-    // Increment menu item
-    newMode = moveToNextEntry(cxt);
+    if (*subEntry > 0 && *isSelected) {
+      *currentMenuLength = 0;
+      callIncrementHandler();
+    } else {
+      newMode = moveToNextEntry(cxt);
+    }
     break;
   default:
     break;
   }
 
-  if ((PRESS_ACCEL_INTERVAL_MAX - (*autoRepeatAcceleration)) < PRESS_ACCEL_INTERVAL_MIN) {
-    (*autoRepeatAcceleration) = PRESS_ACCEL_INTERVAL_MAX - PRESS_ACCEL_INTERVAL_MIN;
+  if (newMode != OperatingMode::SettingsMenu) {
+    return newMode;
   }
 
-  // Otherwise we stay put for next render iteration
+  if (!*isRenderingHelp) {
+    TickType_t idleTicks = xTaskGetTickCount() - lastButtonTime;
+
+    if (*subEntry > 0 && *isSelected && idleTicks > (TICKS_SECOND * 1.5)) {
+      *isSelected = 0;
+      saveSettings();
+      lastButtonTime = xTaskGetTickCount();
+    } else if (*subEntry > 0 && !*isSelected && idleTicks > (TICKS_SECOND * 3)) {
+      saveSettings();
+      *subEntry = 0;
+      lastButtonTime = xTaskGetTickCount();
+      cxt->transitionMode = TransitionAnimation::Left;
+      return OperatingMode::SettingsMenu;
+    } else if (*subEntry == 0 && idleTicks > (TICKS_SECOND * 3)) {
+      saveSettings();
+      cxt->transitionMode = TransitionAnimation::Left;
+      return cxt->previousMode;
+    }
+  }
   return newMode;
 }
